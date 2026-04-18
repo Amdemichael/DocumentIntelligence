@@ -10,12 +10,6 @@ public class DomainException : Exception
         : base(message, innerException) { }
 }
 
-public class BusinessRuleViolationException : DomainException
-{
-    public BusinessRuleViolationException(string rule)
-        : base($"Business rule violated: {rule}") { }
-}
-
 public class InvalidDocumentStateException : DomainException
 {
     public InvalidDocumentStateException(string message) : base(message) { }
