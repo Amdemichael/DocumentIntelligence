@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using Domain.Common;
 using Domain.Exceptions;
 
@@ -10,13 +9,15 @@ public class BlobUrl : ValueObject
 {
     public string Value { get; }
     public Uri Uri { get; }
-    public string ContainerName { get; }
-    public string BlobName { get; }
+    public string? ContainerName { get; }
+    public string? BlobName { get; }
+    public bool IsAzureBlob { get; }
 
-    private BlobUrl(string value, Uri uri, string containerName, string blobName)
+    private BlobUrl(string value, Uri uri, bool isAzureBlob, string? containerName = null, string? blobName = null)
     {
         Value = value;
         Uri = uri;
+        IsAzureBlob = isAzureBlob;
         ContainerName = containerName;
         BlobName = blobName;
     }
@@ -27,18 +28,26 @@ public class BlobUrl : ValueObject
             throw new DomainException("Blob URL cannot be empty");
 
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            throw new DomainException("Invalid blob URL");
+            throw new DomainException("Invalid URL format");
 
-        var pattern = @"https://([^.]+)\.blob\.core\.windows\.net/([^/]+)/(.+)";
-        var match = Regex.Match(url, pattern);
+        // Check if it's an Azure Blob URL
+        var isAzureBlob = uri.Host?.Contains(".blob.core.windows.net") == true;
 
-        if (!match.Success)
-            throw new DomainException("Invalid Azure Blob URL format");
+        string? containerName = null;
+        string? blobName = null;
 
-        var containerName = match.Groups[2].Value;
-        var blobName = Uri.UnescapeDataString(match.Groups[3].Value);
+        if (isAzureBlob)
+        {
+            // Parse Azure Blob URL: https://{account}.blob.core.windows.net/{container}/{blob}
+            var segments = uri.AbsolutePath.TrimStart('/').Split('/');
+            if (segments.Length >= 2)
+            {
+                containerName = segments[0];
+                blobName = string.Join("/", segments.Skip(1));
+            }
+        }
 
-        return new BlobUrl(url, uri, containerName, blobName);
+        return new BlobUrl(url, uri, isAzureBlob, containerName, blobName);
     }
 
     protected override IEnumerable<object> GetEqualityComponents()
