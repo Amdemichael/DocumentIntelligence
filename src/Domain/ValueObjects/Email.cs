@@ -22,28 +22,12 @@ public class Email : ValueObject
 
         email = email.Trim().ToLowerInvariant();
 
-        if (!IsValidEmail(email))
+        var pattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+        if (!Regex.IsMatch(email, pattern))
             throw new DomainException($"Invalid email format: {email}");
 
         return new Email(email);
     }
-
-    private static bool IsValidEmail(string email)
-    {
-        try
-        {
-            // Basic regex for email validation
-            var pattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
-            return Regex.IsMatch(email, pattern);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    public string GetDomain() => Value.Split('@')[1];
-    public string GetLocalPart() => Value.Split('@')[0];
 
     protected override IEnumerable<object> GetEqualityComponents()
     {

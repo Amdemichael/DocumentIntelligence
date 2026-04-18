@@ -19,48 +19,6 @@ public record DocumentCreatedEvent : IDomainEvent
     }
 }
 
-public record DocumentProcessingStartedEvent : IDomainEvent
-{
-    public Guid DocumentId { get; }
-    public DateTime OccurredOn { get; }
-
-    public DocumentProcessingStartedEvent(Guid documentId)
-    {
-        DocumentId = documentId;
-        OccurredOn = DateTime.UtcNow;
-    }
-}
-
-public record DocumentProcessedEvent : IDomainEvent
-{
-    public Guid DocumentId { get; }
-    public string ExtractedData { get; }
-    public double Confidence { get; }
-    public DateTime OccurredOn { get; }
-
-    public DocumentProcessedEvent(Guid documentId, string extractedData, double confidence)
-    {
-        DocumentId = documentId;
-        ExtractedData = extractedData;
-        Confidence = confidence;
-        OccurredOn = DateTime.UtcNow;
-    }
-}
-
-public record DocumentProcessingFailedEvent : IDomainEvent
-{
-    public Guid DocumentId { get; }
-    public string Error { get; }
-    public DateTime OccurredOn { get; }
-
-    public DocumentProcessingFailedEvent(Guid documentId, string error)
-    {
-        DocumentId = documentId;
-        Error = error;
-        OccurredOn = DateTime.UtcNow;
-    }
-}
-
 public record DocumentApprovedEvent : IDomainEvent
 {
     public Guid DocumentId { get; }

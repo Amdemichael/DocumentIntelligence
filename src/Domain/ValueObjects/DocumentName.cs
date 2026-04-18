@@ -10,7 +10,6 @@ namespace Domain.ValueObjects;
 public class DocumentName : ValueObject
 {
     private static readonly string[] AllowedExtensions = { ".pdf", ".jpg", ".png", ".docx" };
-    private const int MaxLength = 255;
 
     public string Value { get; }
     public string Extension { get; }
@@ -28,26 +27,14 @@ public class DocumentName : ValueObject
         if (string.IsNullOrWhiteSpace(fileName))
             throw new DomainException("File name cannot be empty");
 
-        if (fileName.Length > MaxLength)
-            throw new DomainException($"File name cannot exceed {MaxLength} characters");
-
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
 
         if (!AllowedExtensions.Contains(extension))
-            throw new DomainException($"File extension '{extension}' is not allowed. Allowed: {string.Join(", ", AllowedExtensions)}");
+            throw new DomainException($"File extension '{extension}' not allowed");
 
         var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
 
-        // Remove invalid characters
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitizedName = new string(nameWithoutExtension
-            .Where(c => !invalidChars.Contains(c))
-            .ToArray());
-
-        if (string.IsNullOrWhiteSpace(sanitizedName))
-            throw new DomainException("File name contains only invalid characters");
-
-        return new DocumentName($"{sanitizedName}{extension}", extension, sanitizedName);
+        return new DocumentName(fileName, extension, nameWithoutExtension);
     }
 
     protected override IEnumerable<object> GetEqualityComponents()

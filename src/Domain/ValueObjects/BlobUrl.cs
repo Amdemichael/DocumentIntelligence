@@ -27,9 +27,8 @@ public class BlobUrl : ValueObject
             throw new DomainException("Blob URL cannot be empty");
 
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            throw new DomainException("Invalid blob URL format");
+            throw new DomainException("Invalid blob URL");
 
-        // Parse Azure Blob URL: https://{account}.blob.core.windows.net/{container}/{blob}
         var pattern = @"https://([^.]+)\.blob\.core\.windows\.net/([^/]+)/(.+)";
         var match = Regex.Match(url, pattern);
 

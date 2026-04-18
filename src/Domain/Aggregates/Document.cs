@@ -9,23 +9,18 @@ namespace Domain.Aggregates;
 
 public class Document : BaseEntity, IAggregateRoot
 {
-    // Properties
-    public DocumentName Name { get; private set; }
-    public BlobUrl BlobUrl { get; private set; }
-    public DocumentStatus Status { get; private set; }
-    public Email UploadedBy { get; private set; }
-    public FileSize Size { get; private set; }
+    // Properties - only unique ones, base properties come from BaseEntity
+    public DocumentName Name { get; private set; } = null!;
+    public BlobUrl BlobUrl { get; private set; } = null!;
+    public DocumentStatus Status { get; private set; } = null!;
+    public Email UploadedBy { get; private set; } = null!;
+    public FileSize Size { get; private set; } = null!;
     public string? Description { get; private set; }
     public DateTime? ProcessedAt { get; private set; }
     public string? ProcessedBy { get; private set; }
-    public string? ProcessingError { get; private set; }
-
-    // Approval related
     public string? ApprovedBy { get; private set; }
     public DateTime? ApprovedAt { get; private set; }
     public string? ApprovalComments { get; private set; }
-
-    // AI extracted data (JSON)
     public string? ExtractedData { get; private set; }
     public double? ExtractionConfidence { get; private set; }
 
@@ -53,51 +48,19 @@ public class Document : BaseEntity, IAggregateRoot
             CreatedBy = uploadedBy.ToString()
         };
 
-        document.AddDomainEvent(new DocumentCreatedEvent(document.Id, name.ToString(), uploadedBy.ToString()));
+        // Raise domain event
+        document.AddDomainEvent(new DocumentCreatedEvent(
+            document.Id,
+            name.ToString(),
+            uploadedBy.ToString()));
 
         return document;
     }
 
-    // Domain behaviors
-    public void StartProcessing(string processor)
-    {
-        if (Status != DocumentStatus.Pending)
-            throw new InvalidDocumentStateException($"Cannot process document in {Status.Name} state");
-
-        Status = DocumentStatus.Processing;
-        ProcessedBy = processor;
-
-        AddDomainEvent(new DocumentProcessingStartedEvent(Id));
-    }
-
-    public void CompleteProcessing(string extractedData, double confidence)
-    {
-        if (Status != DocumentStatus.Processing)
-            throw new InvalidDocumentStateException($"Cannot complete processing in {Status.Name} state");
-
-        ExtractedData = extractedData;
-        ExtractionConfidence = confidence;
-        Status = confidence >= 0.8 ? DocumentStatus.AwaitingApproval : DocumentStatus.Pending;
-        ProcessedAt = DateTime.UtcNow;
-
-        AddDomainEvent(new DocumentProcessedEvent(Id, extractedData, confidence));
-    }
-
-    public void FailProcessing(string error)
-    {
-        if (Status != DocumentStatus.Processing)
-            throw new InvalidDocumentStateException($"Cannot fail document in {Status.Name} state");
-
-        Status = DocumentStatus.Failed;
-        ProcessingError = error;
-        ProcessedAt = DateTime.UtcNow;
-
-        AddDomainEvent(new DocumentProcessingFailedEvent(Id, error));
-    }
-
+    // Business method: Approve the document
     public void Approve(string approvedBy, string? comments = null)
     {
-        if (Status != DocumentStatus.AwaitingApproval)
+        if (Status != DocumentStatus.AwaitingApproval && Status != DocumentStatus.Pending)
             throw new InvalidDocumentStateException($"Cannot approve document in {Status.Name} state");
 
         Status = DocumentStatus.Approved;
@@ -110,9 +73,10 @@ public class Document : BaseEntity, IAggregateRoot
         AddDomainEvent(new DocumentApprovedEvent(Id, approvedBy));
     }
 
+    // Business method: Reject the document
     public void Reject(string rejectedBy, string reason)
     {
-        if (Status != DocumentStatus.AwaitingApproval)
+        if (Status != DocumentStatus.AwaitingApproval && Status != DocumentStatus.Pending)
             throw new InvalidDocumentStateException($"Cannot reject document in {Status.Name} state");
 
         Status = DocumentStatus.Rejected;
@@ -125,24 +89,10 @@ public class Document : BaseEntity, IAggregateRoot
         AddDomainEvent(new DocumentRejectedEvent(Id, rejectedBy, reason));
     }
 
-    public void UpdateDescription(string description, string updatedBy)
-    {
-        if (!CanBeModified())
-            throw new InvalidDocumentStateException($"Cannot modify document in {Status.Name} state");
-
-        Description = description;
-        LastModifiedAt = DateTime.UtcNow;
-        LastModifiedBy = updatedBy;
-    }
-
+    // Helper methods
     public bool CanBeModified()
     {
         return Status == DocumentStatus.Pending || Status == DocumentStatus.Rejected;
-    }
-
-    public bool NeedsHumanReview()
-    {
-        return ExtractionConfidence.HasValue && ExtractionConfidence < 0.8;
     }
 
     public int GetDaysPending()
@@ -151,5 +101,4 @@ public class Document : BaseEntity, IAggregateRoot
     }
 }
 
-// Marker interface for aggregate roots
 public interface IAggregateRoot { }
