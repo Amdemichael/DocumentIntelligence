@@ -2,30 +2,37 @@ using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
 using Domain.Interfaces;
 using Infrastructure.Repositories;
+using MediatR;
+using FluentValidation;
+using System.Reflection;
+using API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "Document Intelligence API",
-        Version = "v1",
-        Description = "API for managing document processing and approval workflows"
-    });
-});
+builder.Services.AddSwaggerGen();
 
-// Use SQLite
+// Database
 var connectionString = "Data Source=DocumentIntelligence.db";
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 
-// Register repositories
+// Repositories
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+
+// Add MediatR from Application layer
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Application.Features.Documents.Commands.CreateDocument.CreateDocumentCommand).Assembly);
+    // Add pipeline behaviors
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Application.Common.Behaviors.ValidationBehavior<,>));
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Application.Common.Behaviors.LoggingBehavior<,>));
+});
+
+// Add FluentValidation
+builder.Services.AddValidatorsFromAssembly(typeof(Application.Features.Documents.Commands.CreateDocument.CreateDocumentCommandValidator).Assembly);
 
 // CORS
 builder.Services.AddCors(options =>
@@ -47,14 +54,14 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.EnsureCreatedAsync();
 }
 
+// Add exception handling middleware
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 // Configure pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Document Intelligence API v1");
-    });
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
